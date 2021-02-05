@@ -2,6 +2,8 @@ use smartcore::dataset::Dataset;
 use csv::Reader;
 use serde::{Deserialize};
 use std::fs::File;
+use rand::Rng;
+use rand_distr::{Distribution, Normal, NormalError};
 
 #[derive(Deserialize)]
 struct TitanicCSVpassenger {
@@ -42,7 +44,7 @@ fn main() {
     use smartcore::metrics::roc_auc_score;
     use smartcore::model_selection::train_test_split;
     // Load dataset
-    let titanic_data = load_titanic_data(read_titanic_train_data());
+    let titanic_data = load_titanic_data(read_titanic_train_data(), 10);
     display_dataset(&titanic_data);
     //display_dataset(&smartcore::dataset::breast_cancer::load_dataset());
     // Transform dataset into a NxM matrix
@@ -63,10 +65,12 @@ fn main() {
     println!("AUC SVM: {}", roc_auc_score(&y_test, &y_hat_svm));
 }
 
-fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
+fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) -> TitanicDataset {
     let mut features = Vec::new();
     let mut survivals = Vec::new();
-    let num_samples = data.len();
+    let num_samples = data.len()*(1+synthetic_per_real);
+    let mut rng = rand::thread_rng();
+    let normal = Normal::new(0.0, 0.1).expect("distribution troubles");
     let class_normalizer = get_normalizer(data.iter().map(|pass| pass.passenger_class as f32).collect());
     let par_ch_normalizer = get_normalizer(data.iter().map(|pass| pass.parents_and_children as f32).collect());
     let sib_sp_normalizer = get_normalizer(data.iter().map(|pass| pass.siblings_and_spouses as f32).collect());
@@ -82,11 +86,25 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
             1.0
         };
         features.push(sex);
-        features.push(class_normalizer(passenger.passenger_class as f32));
-        features.push(par_ch_normalizer(passenger.parents_and_children as f32));
-        features.push(sib_sp_normalizer(passenger.siblings_and_spouses as f32));
-        features.push(fare_normalizer(passenger.fare as f32));
-        features.push(age_normalizer(passenger.age.unwrap_or(average_age) as f32));
+        let class = class_normalizer(passenger.passenger_class as f32);
+        features.push(class);
+        let par_ch = par_ch_normalizer(passenger.parents_and_children as f32);
+        features.push(par_ch);
+        let sib_sp = sib_sp_normalizer(passenger.siblings_and_spouses as f32);
+        features.push(sib_sp);
+        let fare = fare_normalizer(passenger.fare as f32);
+        features.push(fare);
+        let age = age_normalizer(passenger.age.unwrap_or(average_age) as f32);
+        features.push(age);
+        for _i in 0..synthetic_per_real {
+            survivals.push(passenger.survived as f32);
+            features.push(sex + normal.sample(&mut rng));
+            features.push(class + normal.sample(&mut rng));
+            features.push(par_ch + normal.sample(&mut rng));
+            features.push(sib_sp + normal.sample(&mut rng));
+            features.push(fare + normal.sample(&mut rng));
+            features.push(age + normal.sample(&mut rng));
+        }
     }
     let feature_names = vec!(
         "sex".to_owned(),
