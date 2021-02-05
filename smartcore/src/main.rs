@@ -43,6 +43,8 @@ fn main() {
     use smartcore::model_selection::train_test_split;
     // Load dataset
     let titanic_data = load_titanic_data(read_titanic_train_data());
+    display_dataset(&titanic_data);
+    display_dataset(&smartcore::dataset::breast_cancer::load_dataset());
     // Transform dataset into a NxM matrix
     let x = DenseMatrix::from_array(
         titanic_data.num_samples,
@@ -96,4 +98,57 @@ fn read_titanic_train_data() -> Vec<TitanicCSVpassenger> {
         vector.push(passenger_result.expect("bad passenger record"));
     }
     vector
+}
+
+fn display_dataset<X: Copy + std::fmt::Debug, Y: Copy + std::fmt::Debug>(dataset: &Dataset<X, Y>) {
+    struct Target<Y> {
+        name: String,
+        value: Y
+    }
+    struct Feature<X> {
+        name: String,
+        value: X
+    }
+    struct DataPoint<X, Y> {
+        labels: Vec<Target<Y>>,
+        features: Vec<Feature<X>>
+    }
+    impl <X: Copy + std::fmt::Debug, Y: Copy + std::fmt::Debug>std::fmt::Display for DataPoint<X, Y> {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            // Write strictly the first element into the supplied output
+            // stream: `f`. Returns `fmt::Result` which indicates whether the
+            // operation succeeded or failed. Note that `write!` uses syntax which
+            // is very similar to `println!`.
+            write!(
+                f, "{} : {}",
+                self.labels.iter().map(|target| format!("{}:{:?}, ", target.name, target.value)).collect::<String>(),
+                self.features.iter().map(|feature| format!("{}:{:?}, ", feature.name, feature.value)).collect::<String>()
+            )
+        }
+    }
+    println!("{}", dataset.description);
+    let mut datapoints = Vec::new();
+    for sample_index in 0..dataset.num_samples {
+        let mut features = Vec::new();
+        for feature_index in 0..dataset.feature_names.len() {
+            features.push(Feature{
+                name: dataset.feature_names[feature_index].to_owned(),
+                value: dataset.data[sample_index*dataset.num_features+feature_index]
+            });
+        }
+        let mut targets = Vec::new();
+        for target_index in 0..dataset.target_names.len() {
+            targets.push(Target{
+                name: dataset.target_names[target_index].to_owned(),
+                value: dataset.target[sample_index*dataset.target_names.len()+target_index]
+            });
+        }
+        datapoints.push(DataPoint {
+            labels: targets,
+            features
+        })
+    }
+    for point in datapoints {
+        println!("{}", point);
+    }
 }
