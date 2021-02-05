@@ -1,6 +1,7 @@
 use smartcore::dataset::Dataset;
+use smartcore::linalg::naive::dense_matrix::DenseMatrix;
 use csv::Reader;
-use serde::{Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use rand::Rng;
 use rand_distr::{Distribution, Normal, NormalError};
@@ -33,18 +34,50 @@ struct TitanicCSVpassenger {
     embarked: String 
 }
 
+#[derive(Deserialize)]
+struct TitanicTestCSVpassenger {
+    #[serde(rename(deserialize = "PassengerId"))]
+    passenger_id: i16,
+    #[serde(rename(deserialize = "Pclass"))]
+    passenger_class: i8,
+    #[serde(rename(deserialize = "Name"))]
+    name: String,
+    #[serde(rename(deserialize = "Sex"))]
+    sex: String,
+    #[serde(rename(deserialize = "Age"))]
+    age: Option<f32>,
+    #[serde(rename(deserialize = "SibSp"))]
+    siblings_and_spouses: i8,
+    #[serde(rename(deserialize = "Parch"))]
+    parents_and_children: i8,
+    #[serde(rename(deserialize = "Ticket"))]
+    ticket: String,
+    #[serde(rename(deserialize = "Fare"))]
+    fare: Option<f32>,
+    #[serde(rename(deserialize = "Cabin"))]
+    cabin: Option<String>,
+    #[serde(rename(deserialize = "Embarked"))]
+    embarked: String 
+}
+
+#[derive(Serialize)]
+struct TitanicSubmissionCSVpassenger {
+    #[serde(rename(serialize = "PassengerId"))]
+    passenger_id: i16,
+    #[serde(rename(serialize = "Survived"))]
+    survived: i8,
+}
+
 type TitanicDataset = Dataset<f32, f32>;
 
 fn main() {
-    // DenseMatrix wrapper around Vec
-    use smartcore::linalg::naive::dense_matrix::DenseMatrix;
     // SVM
     use smartcore::svm::svc::{SVCParameters, SVC};
     // Model performance
     use smartcore::metrics::roc_auc_score;
     use smartcore::model_selection::train_test_split;
     // Load dataset
-    let titanic_data = load_titanic_data(read_titanic_train_data(), 10);
+    let titanic_data = load_titanic_data(read_titanic_train_data(), 0);
     display_dataset(&titanic_data);
     //display_dataset(&smartcore::dataset::breast_cancer::load_dataset());
     // Transform dataset into a NxM matrix
@@ -58,11 +91,22 @@ fn main() {
     // Split dataset into training/test (80%/20%)
     let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true);
     // SVC
-    let y_hat_svm = SVC::fit(&x_train, &y_train, SVCParameters::default())
-        .and_then(|svm| svm.predict(&x_test))
-        .unwrap();
+    let model = SVC::fit(&x_train, &y_train, SVCParameters::default()).expect("model problems");
+    let y_hat_svm = model.predict(&x_test).expect("inference problems");
     // Calculate test error
     println!("AUC SVM: {}", roc_auc_score(&y_test, &y_hat_svm));
+    let test_passengers = read_titanic_test_data();
+    let test_predictions = model.predict(&get_test_features(&test_passengers)).expect("inference problems");
+    let num_passengers = test_predictions.len();
+    let mut wtr = csv::Writer::from_writer(std::io::stdout());
+    for i in 0..num_passengers {
+        let pass = TitanicSubmissionCSVpassenger{
+            passenger_id: test_passengers[i].passenger_id,
+            survived: test_predictions[i].round() as i8
+        };
+        wtr.serialize(pass).expect("couldn't write value");
+        wtr.flush().expect("couldn't write csv");
+    }
 }
 
 fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) -> TitanicDataset {
@@ -126,6 +170,44 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) 
     }
 }
 
+
+fn get_test_features(test_passengers: &Vec<TitanicTestCSVpassenger>) -> DenseMatrix<f32> {
+    let mut features: Vec<f32> = Vec::new();
+    let num_passengers = test_passengers.len();
+    let class_normalizer = get_normalizer(test_passengers.iter().map(|pass| pass.passenger_class as f32).collect());
+    let par_ch_normalizer = get_normalizer(test_passengers.iter().map(|pass| pass.parents_and_children as f32).collect());
+    let sib_sp_normalizer = get_normalizer(test_passengers.iter().map(|pass| pass.siblings_and_spouses as f32).collect());
+    let ages: Vec<f32> = test_passengers.iter().flat_map(|pass| pass.age).collect();
+    let average_age: f32 = ages.iter().sum::<f32>()/(ages.len() as f32);
+    let age_normalizer = get_normalizer(ages);
+    let fares: Vec<f32> = test_passengers.iter().flat_map(|pass| pass.fare).collect();
+    let average_fare: f32 = fares.iter().sum::<f32>()/(fares.len() as f32);
+    let fare_normalizer = get_normalizer(fares);
+    for passenger in test_passengers {
+        let sex: f32 = if passenger.sex.eq("male") {
+            0.0
+        } else {
+            1.0
+        };
+        features.push(sex);
+        let class = class_normalizer(passenger.passenger_class as f32);
+        features.push(class);
+        let par_ch = par_ch_normalizer(passenger.parents_and_children as f32);
+        features.push(par_ch);
+        let sib_sp = sib_sp_normalizer(passenger.siblings_and_spouses as f32);
+        features.push(sib_sp);
+        let fare = fare_normalizer(passenger.fare.unwrap_or(average_fare) as f32);
+        features.push(fare);
+        let age = age_normalizer(passenger.age.unwrap_or(average_age) as f32);
+        features.push(age);
+    }
+    DenseMatrix::from_array(
+        num_passengers,
+        features.len()/num_passengers,
+        &features,
+    )
+}
+
 fn get_normalizer(data: Vec<f32>) -> Box<dyn Fn(f32) -> f32> {
     let sorted = {
         let mut copy = data.to_vec();
@@ -143,6 +225,17 @@ fn read_titanic_train_data() -> Vec<TitanicCSVpassenger> {
     let file = File::open("../data/kaggle/titanic/train.csv").expect("no file");
     let mut reader = Reader::from_reader(file);
     for passenger_result in reader.deserialize::<TitanicCSVpassenger>() {
+
+        vector.push(passenger_result.expect("bad passenger record"));
+    }
+    vector
+}
+
+fn read_titanic_test_data() -> Vec<TitanicTestCSVpassenger> {
+    let mut vector = Vec::new();
+    let file = File::open("../data/kaggle/titanic/test.csv").expect("no file");
+    let mut reader = Reader::from_reader(file);
+    for passenger_result in reader.deserialize::<TitanicTestCSVpassenger>() {
 
         vector.push(passenger_result.expect("bad passenger record"));
     }
