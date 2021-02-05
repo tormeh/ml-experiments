@@ -67,6 +67,10 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
     let mut features = Vec::new();
     let mut survivals = Vec::new();
     let num_samples = data.len();
+    let class_normalizer = get_normalizer(data.iter().map(|pass| pass.passenger_class as f32).collect());
+    let par_ch_normalizer = get_normalizer(data.iter().map(|pass| pass.parents_and_children as f32).collect());
+    let sib_sp_normalizer = get_normalizer(data.iter().map(|pass| pass.siblings_and_spouses as f32).collect());
+    let fare_normalizer = get_normalizer(data.iter().map(|pass| pass.fare as f32).collect());
     for passenger in data {
         survivals.push(passenger.survived as f32);
         let sex: f32 = if passenger.sex.eq("male") {
@@ -75,10 +79,10 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
             1.0
         };
         features.push(sex);
-        features.push(passenger.passenger_class as f32);
-        features.push(passenger.parents_and_children as f32);
-        features.push(passenger.siblings_and_spouses as f32);
-        features.push(passenger.fare as f32);
+        features.push(class_normalizer(passenger.passenger_class as f32));
+        features.push(par_ch_normalizer(passenger.parents_and_children as f32));
+        features.push(sib_sp_normalizer(passenger.siblings_and_spouses as f32));
+        features.push(fare_normalizer(passenger.fare as f32));
     }
     let feature_names = vec!(
         "sex".to_owned(),
@@ -97,6 +101,18 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
         target_names: vec!("survived".to_owned()),
         description: "Titanic dataset".to_owned()
     }
+}
+
+fn get_normalizer(data: Vec<f32>) -> Box<dyn Fn(f32) -> f32> {
+    let sorted = {
+        let mut copy = data.to_vec();
+        copy.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        copy
+    };
+    let min = sorted[0];
+    let max = sorted[sorted.len()-1];
+    let max_diff = max-min;
+    Box::new(move |num: f32| (num-min)/max_diff)
 }
 
 fn read_titanic_train_data() -> Vec<TitanicCSVpassenger> {
