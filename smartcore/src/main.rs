@@ -76,8 +76,15 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
         };
         features.push(sex);
         features.push(passenger.passenger_class as f32);
+        features.push(passenger.parents_and_children as f32);
+        features.push(passenger.siblings_and_spouses as f32);
     }
-    let feature_names = vec!("sex".to_owned(), "passenger class".to_owned());
+    let feature_names = vec!(
+        "sex".to_owned(),
+        "passenger class".to_owned(),
+        "parents_and_children".to_owned(),
+        "siblings_and_spouses".to_owned(),
+    );
     let num_features = features.len()/num_samples;
     TitanicDataset {
         data: features,
