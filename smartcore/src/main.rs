@@ -56,7 +56,7 @@ fn main() {
     // Split dataset into training/test (80%/20%)
     let (x_train, x_test, y_train, y_test) = train_test_split(&x, &y, 0.2, true);
     // SVC
-    let y_hat_svm = SVC::fit(&x_train, &y_train, SVCParameters::default().with_c(10.0))
+    let y_hat_svm = SVC::fit(&x_train, &y_train, SVCParameters::default())
         .and_then(|svm| svm.predict(&x_test))
         .unwrap();
     // Calculate test error
