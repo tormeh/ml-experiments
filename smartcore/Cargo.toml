@@ -9,3 +9,4 @@ edition = "2018"
 [dependencies]
 smartcore = "0.2.0"
 csv = "1.1.5"
+serde = "1.0.123"
