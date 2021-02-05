@@ -44,7 +44,7 @@ fn main() {
     // Load dataset
     let titanic_data = load_titanic_data(read_titanic_train_data());
     display_dataset(&titanic_data);
-    display_dataset(&smartcore::dataset::breast_cancer::load_dataset());
+    //display_dataset(&smartcore::dataset::breast_cancer::load_dataset());
     // Transform dataset into a NxM matrix
     let x = DenseMatrix::from_array(
         titanic_data.num_samples,
@@ -70,13 +70,14 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
     for passenger in data {
         survivals.push(passenger.survived as f32);
         let sex: f32 = if passenger.sex.eq("male") {
-            -1.0
+            0.0
         } else {
             1.0
         };
         features.push(sex);
+        features.push(passenger.passenger_class as f32);
     }
-    let feature_names = vec!("sex".to_owned());
+    let feature_names = vec!("sex".to_owned(), "passenger class".to_owned());
     let num_features = features.len()/num_samples;
     TitanicDataset {
         data: features,
