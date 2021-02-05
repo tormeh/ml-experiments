@@ -71,6 +71,9 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
     let par_ch_normalizer = get_normalizer(data.iter().map(|pass| pass.parents_and_children as f32).collect());
     let sib_sp_normalizer = get_normalizer(data.iter().map(|pass| pass.siblings_and_spouses as f32).collect());
     let fare_normalizer = get_normalizer(data.iter().map(|pass| pass.fare as f32).collect());
+    let ages: Vec<f32> = data.iter().flat_map(|pass| pass.age).collect();
+    let average_age: f32 = ages.iter().sum::<f32>()/(ages.len() as f32);
+    let age_normalizer = get_normalizer(ages);
     for passenger in data {
         survivals.push(passenger.survived as f32);
         let sex: f32 = if passenger.sex.eq("male") {
@@ -83,6 +86,7 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
         features.push(par_ch_normalizer(passenger.parents_and_children as f32));
         features.push(sib_sp_normalizer(passenger.siblings_and_spouses as f32));
         features.push(fare_normalizer(passenger.fare as f32));
+        features.push(age_normalizer(passenger.age.unwrap_or(average_age) as f32));
     }
     let feature_names = vec!(
         "sex".to_owned(),
@@ -90,6 +94,7 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>) -> TitanicDataset {
         "parents_and_children".to_owned(),
         "siblings_and_spouses".to_owned(),
         "fare".to_owned(),
+        "age".to_owned(),
     );
     let num_features = features.len()/num_samples;
     TitanicDataset {
