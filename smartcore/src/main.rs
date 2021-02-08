@@ -150,6 +150,8 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) 
         features.push(child_with_siblings);
         let child_with_parents = if passenger.age.unwrap_or(average_age) < 18.0 {par_ch} else {0.0};
         features.push(child_with_parents);
+        let relatives = (passenger.siblings_and_spouses + passenger.parents_and_children) as f32;
+        features.push(relatives);
         for _i in 0..synthetic_per_real {
             survivals.push(passenger.survived as f32);
             features.push(sex + normal.sample(&mut rng));
@@ -163,6 +165,7 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) 
             features.push(southampton + normal.sample(&mut rng));
             features.push(child_with_siblings + normal.sample(&mut rng));
             features.push(child_with_parents + normal.sample(&mut rng));
+            features.push(relatives + normal.sample(&mut rng));
         }
     }
     let feature_names = vec!(
@@ -177,6 +180,7 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) 
         "southampton".to_owned(),
         "child_with_siblings".to_owned(),
         "child_with_parents".to_owned(),
+        "relatives".to_owned(),
     );
     let num_features = features.len()/num_samples;
     TitanicDataset {
