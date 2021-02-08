@@ -140,6 +140,12 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) 
         features.push(fare);
         let age = age_normalizer(passenger.age.unwrap_or(average_age) as f32);
         features.push(age);
+        let cherbourg = if passenger.embarked.eq("C") {1.0} else {0.0};
+        features.push(cherbourg);
+        let queenstown = if passenger.embarked.eq("Q") {1.0} else {0.0};
+        features.push(queenstown);
+        let southampton = if passenger.embarked.eq("S") {1.0} else {0.0};
+        features.push(southampton);
         for _i in 0..synthetic_per_real {
             survivals.push(passenger.survived as f32);
             features.push(sex + normal.sample(&mut rng));
@@ -148,6 +154,9 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) 
             features.push(sib_sp + normal.sample(&mut rng));
             features.push(fare + normal.sample(&mut rng));
             features.push(age + normal.sample(&mut rng));
+            features.push(cherbourg + normal.sample(&mut rng));
+            features.push(queenstown + normal.sample(&mut rng));
+            features.push(southampton + normal.sample(&mut rng));
         }
     }
     let feature_names = vec!(
@@ -157,6 +166,9 @@ fn load_titanic_data(data: Vec<TitanicCSVpassenger>, synthetic_per_real: usize) 
         "siblings_and_spouses".to_owned(),
         "fare".to_owned(),
         "age".to_owned(),
+        "cherbourg".to_owned(),
+        "queenstown".to_owned(),
+        "southampton".to_owned(),
     );
     let num_features = features.len()/num_samples;
     TitanicDataset {
