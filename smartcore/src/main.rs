@@ -224,6 +224,18 @@ fn get_test_features(test_passengers: &Vec<TitanicTestCSVpassenger>) -> DenseMat
         features.push(fare);
         let age = age_normalizer(passenger.age.unwrap_or(average_age) as f32);
         features.push(age);
+        let cherbourg = if passenger.embarked.eq("C") {1.0} else {0.0};
+        features.push(cherbourg);
+        let queenstown = if passenger.embarked.eq("Q") {1.0} else {0.0};
+        features.push(queenstown);
+        let southampton = if passenger.embarked.eq("S") {1.0} else {0.0};
+        features.push(southampton);
+        let child_with_siblings = if passenger.age.unwrap_or(average_age) < 18.0 {sib_sp} else {0.0};
+        features.push(child_with_siblings);
+        let child_with_parents = if passenger.age.unwrap_or(average_age) < 18.0 {par_ch} else {0.0};
+        features.push(child_with_parents);
+        let relatives = (passenger.siblings_and_spouses + passenger.parents_and_children) as f32;
+        features.push(relatives);
     }
     DenseMatrix::from_array(
         num_passengers,
